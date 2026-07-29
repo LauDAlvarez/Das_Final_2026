@@ -16,8 +16,8 @@ if ($target -ne "net8.0-windows") {
     throw "Proyecto incorrecto: se esperaba net8.0-windows y se encontró '$target'."
 }
 
-if ($packages -notcontains "Microsoft.EntityFrameworkCore.Sqlite") {
-    throw "Proyecto incorrecto: no utiliza Microsoft.EntityFrameworkCore.Sqlite."
+if ($packages -notcontains "Microsoft.EntityFrameworkCore.SqlServer") {
+    throw "Proyecto incorrecto: no utiliza Microsoft.EntityFrameworkCore.SqlServer."
 }
 
 $forbidden = Get-ChildItem $root -Recurse -File -Include *.csproj,packages.config |
@@ -26,6 +26,7 @@ if ($forbidden) {
     throw "Se detectó un proyecto antiguo de .NET Framework/SQL Server dentro del árbol. No lo use como proyecto de inicio."
 }
 
-Write-Host "Entorno correcto: TechStore.App / $target / EF Core SQLite." -ForegroundColor Green
+Write-Host "Entorno correcto: TechStore.App / $target / EF Core SQL Server." -ForegroundColor Green
+Write-Host "Persistencia: Server=LAUTI; Database=TechStoreDB; Windows Authentication."
 Write-Host "Solución: $solution"
 Write-Host "Proyecto: $project"

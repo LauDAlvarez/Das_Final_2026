@@ -1,98 +1,68 @@
 # TechStore S.A. — Sistema de Gestión de Ventas
 
-Aplicación de escritorio nativa para Windows con persistencia SQLite. Incluye inicio operativo, catálogos, inventario, clientes, vendedores, ventas transaccionales, factura imprimible, cuenta corriente, anulación y reportes.
+Aplicación Windows Forms para productos, categorías, clientes, sucursales, inventario, vendedores, ventas, facturas, cuenta corriente, anulaciones y reportes. **Toda la persistencia productiva está centralizada en Microsoft SQL Server**.
 
-## Tecnologías y requisitos
+## Requisitos
 
-C# 12, .NET 8, Windows Forms, Entity Framework Core 8, SQLite, LINQ y xUnit. Requiere Windows 10/11 y SDK .NET 8; `dotnet-ef` es necesario para administrar migraciones.
+- Windows 10/11 y Visual Studio 2022 o SDK .NET 8.
+- SQL Server y acceso mediante SSMS.
+- Servidor configurado: `LAUTI`.
+- Base de datos: `TechStoreDB`.
+- Autenticación: Windows Authentication (`LAUTI\lauta`, según la sesión mostrada en SSMS).
 
-## Restaurar, crear, compilar y ejecutar
+## Preparar SQL Server desde SSMS
 
-Antes de ejecutar cualquier comando, confirme que su copia local contiene los
-archivos `TechStore.sln`, `TechStore.App\TechStore.App.csproj`,
-`INICIAR-TECHSTORE.cmd` y `scripts\Verificar-Entorno.ps1`. Si alguno no existe,
-la copia local todavía no contiene esta entrega: actualice la rama correspondiente
-con `git pull` o vuelva a clonar el repositorio. Ningún comando puede ejecutar un
-archivo que aún no fue descargado.
+Conéctese al servidor `LAUTI` con **Windows Authentication**. Abra y ejecute desde la raíz del repositorio, en este orden:
 
-La forma más sencilla en Windows es hacer doble clic en
-`INICIAR-TECHSTORE.cmd`, o ejecutarlo desde la raíz:
+1. `scripts/sqlserver/01-Crear-TechStoreDB.sql`: crea la base, tablas, relaciones, índices y restricciones exactas que consume la aplicación.
+2. `scripts/sqlserver/02-Datos-Ejemplo.sql`: carga categorías, sucursales, productos, clientes, vendedores e inventario inicial.
+3. `scripts/sqlserver/05-Verificar-Instalacion.sql`: confirma servidor, base, usuario, cantidades e inventario.
+
+Si tiene `sqlcmd` instalado, puede realizar los tres pasos automáticamente haciendo doble clic en `INSTALAR-DB-SQLSERVER.cmd`.
+
+Scripts adicionales:
+
+- `03-Registrar-Venta.sql`: ejemplo transaccional de una venta con control y descuento de stock.
+- `04-Reportes.sql`: ventas, productos más vendidos y cuentas corrientes.
+- `99-Recrear-TechStoreDB.sql`: elimina completamente la base para reiniciar desarrollo. **No ejecutar en producción.**
+
+## Conexión de la aplicación
+
+La cadena está en `TechStore.App/appsettings.json`:
+
+```text
+Server=LAUTI;Database=TechStoreDB;Integrated Security=True;Encrypt=True;TrustServerCertificate=True
+```
+
+Para cambiarla sin modificar archivos, defina `TECHSTORE_CONNECTION_STRING`; esta variable tiene prioridad. No se crea ni se utiliza `techstore.db`: altas, modificaciones, inventario, ventas y cuentas corrientes se guardan en SQL Server. En una base vacía la aplicación puede crear y sembrar automáticamente el esquema, aunque para una instalación verificable se recomienda usar los scripts anteriores.
+
+## Compilar y ejecutar
+
+Desde la carpeta que contiene `TechStore.sln`, puede hacer doble clic en `INICIAR-TECHSTORE.cmd` o ejecutar:
 
 ```bat
 .\INICIAR-TECHSTORE.cmd
 ```
 
-El iniciador valida el proyecto y después restaura dependencias/herramientas,
-actualiza SQLite, ejecuta las pruebas e inicia la aplicación.
-
-La alternativa manual es:
+El iniciador elimina binarios anteriores, restaura dependencias, compila, prueba, comprueba la configuración `LAUTI/TechStoreDB` e inicia el ejecutable actualizado. La alternativa manual es:
 
 ```bash
 dotnet restore
-dotnet tool restore
-dotnet ef database update --project TechStore.App
 dotnet build
 dotnet test
 dotnet run --project TechStore.App
 ```
 
-La aplicación crea e inicializa automáticamente `techstore.db` junto al ejecutable en el primer inicio. La carga inicial contiene 4 categorías, 10 productos, 3 sucursales con inventario, 6 clientes, 3 vendedores, 5 ventas y cuentas corrientes.
+Si falla la conexión, verifique que SQL Server esté iniciado, que `LAUTI` sea alcanzable, que su usuario de Windows tenga acceso y que `TechStoreDB` exista. La aplicación muestra el error original de SQL Server y la ubicación donde se configura la conexión.
 
-> Ejecute todos los comandos desde la carpeta que contiene `TechStore.sln`,
-> `TechStore.App` y `TechStore.Tests`. `dotnet tool restore` instala localmente
-> `dotnet-ef`; no hace falta instalar una herramienta global. Si la terminal está
-> dentro de `TechStore.App`, vuelva primero a la raíz con `cd ..`.
-
-La migración inicial está incluida en el repositorio. Tanto
-`dotnet ef database update --project TechStore.App` como el primer inicio de la
-aplicación ejecutan las migraciones pendientes de manera segura. No se debe crear
-manualmente el archivo SQLite.
-
-## Diagnóstico de una solución distinta
-
-Este repositorio usa los espacios de nombres `TechStore.App.Models` y las clases
-en inglés `Branch` y `Seller`. Si Visual Studio informa errores en
-`TechStore.Models.Entities.Sucursal`, `Data/Migrations/Configuration.cs` o en un
-proyecto llamado `TechStore.csproj`, se está compilando otra solución. Cierre esa
-solución y abra específicamente `TechStore.sln` desde esta carpeta.
-
-El siguiente comando comprueba automáticamente que se abrió la entrega correcta:
+## Verificación del proyecto correcto
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\Verificar-Entorno.ps1
 ```
 
-Si PowerShell indica que ese archivo no existe, no es un error de PowerShell ni
-de permisos: significa que la copia local no tiene el commit que añadió el script,
-o que la consola no está ubicada en la raíz de esta entrega. Compruébelo con:
+La salida esperada indica `TechStore.App / net8.0-windows / EF Core SQL Server`. En Visual Studio establezca **TechStore.App** como proyecto de inicio. No ejecute proyectos antiguos `net472` ni ejecutables conservados en otras carpetas.
 
-```bat
-dir TechStore.sln
-dir TechStore.App\TechStore.App.csproj
-dir scripts\Verificar-Entorno.ps1
-git status -sb
-git log -1 --oneline
-```
+## Arquitectura y módulos
 
-No continúe ejecutando el `.exe` de la subcarpeta legado `TechStore\bin\Debug\net472`.
-
-La salida correcta comienza con `Entorno correcto: TechStore.App / net8.0-windows /
-EF Core SQLite`. Si el depurador muestra `CLR v4.0.30319`, `net472`,
-`EntityFramework.dll`, `EntityFramework.SqlServer.dll`, `System.Data.SqlClient` o
-tablas llamadas `Sucursals`/`Vendedors`, está ejecutando el proyecto legado de
-.NET Framework 4.7.2 y SQL Server, no esta aplicación. Esta entrega carga CoreCLR
-de .NET 8, `Microsoft.EntityFrameworkCore.Sqlite` y genera
-`TechStore.App.exe` dentro de `TechStore.App\bin\Debug\net8.0-windows`.
-
-En Visual Studio, haga clic derecho sobre **TechStore.App** y seleccione
-**Establecer como proyecto de inicio**. Si todavía aparece `net472`, cierre Visual
-Studio, elimine las carpetas `.vs`, `bin` y `obj` del proyecto legado y vuelva a
-abrir solamente `TechStore.sln`.
-
-## Estructura
-
-`TechStore.App` contiene `Models`, `Views`, `Controllers`, `Services`, `Data`, `DTOs`, `Enums` y `Migrations`. `TechStore.Tests` prueba reglas críticas con una base SQLite aislada en memoria. `Docs/Formularios` describe las pantallas.
-
-## Módulos
-
-Productos, categorías, clientes, sucursales, inventario, vendedores, nueva venta, historial/anulación, factura e impresión, pagos de cuenta corriente, reportes e indicadores de inicio. Las bajas son lógicas y las operaciones financieras/de stock usan transacciones.
+`TechStore.App` contiene `Models`, `Views`, `Controllers`, `Services`, `Data`, `DTOs` y `Enums`. Los ABM permiten alta, edición, búsqueda y activación/desactivación. En **Nuevo producto** y **Editar producto** se puede cargar el stock y el stock mínimo de cada sucursal activa; al crear una sucursal se generan los inventarios faltantes en cero. Las ventas y operaciones de stock/cuenta corriente usan transacciones. `TechStore.Tests` conserva SQLite únicamente como motor aislado en memoria para pruebas; nunca se usa como persistencia de la aplicación ejecutable.
