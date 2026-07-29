@@ -6,7 +6,7 @@ if not exist "TechStore.sln" goto :wrong_folder
 if not exist "TechStore.App\TechStore.App.csproj" goto :wrong_folder
 
 findstr /C:"<TargetFramework>net8.0-windows</TargetFramework>" "TechStore.App\TechStore.App.csproj" >nul || goto :wrong_project
-findstr /C:"Microsoft.EntityFrameworkCore.Sqlite" "TechStore.App\TechStore.App.csproj" >nul || goto :wrong_project
+findstr /C:"Microsoft.EntityFrameworkCore.SqlServer" "TechStore.App\TechStore.App.csproj" >nul || goto :wrong_project
 
 echo [1/6] Limpiando compilaciones anteriores para evitar abrir una version vieja...
 if exist "TechStore.App\bin" rmdir /s /q "TechStore.App\bin"
@@ -31,9 +31,12 @@ echo Si el archivo no estaba disponible, primero actualice o vuelva a clonar el 
 exit /b 2
 
 :wrong_project
-echo ERROR: TechStore.App no es la entrega .NET 8 con EF Core SQLite.
-echo No inicie el proyecto legado TechStore de net472 y SQL Server.
+echo ERROR: TechStore.App no es la entrega .NET 8 con EF Core SQL Server.
 exit /b 3
+
+:wrong_connection
+echo ERROR: No se encontro la conexion Server=LAUTI / Database=TechStoreDB en appsettings.json.
+exit /b 4
 
 :failed
 echo ERROR: El paso anterior no pudo completarse. Revise el mensaje mostrado arriba.

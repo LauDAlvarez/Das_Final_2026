@@ -4,8 +4,8 @@ namespace TechStore.App.Data;
 public class TechStoreDbContext : DbContext
 {
  public DbSet<Category> Categories=>Set<Category>(); public DbSet<Product> Products=>Set<Product>(); public DbSet<Branch> Branches=>Set<Branch>(); public DbSet<Inventory> Inventories=>Set<Inventory>(); public DbSet<Customer> Customers=>Set<Customer>(); public DbSet<Seller> Sellers=>Set<Seller>(); public DbSet<Sale> Sales=>Set<Sale>(); public DbSet<SaleItem> SaleItems=>Set<SaleItem>(); public DbSet<CurrentAccountMovement> CurrentAccountMovements=>Set<CurrentAccountMovement>();
- public string DbPath {get;} public TechStoreDbContext(){DbPath=Path.Combine(AppContext.BaseDirectory,"techstore.db");} public TechStoreDbContext(DbContextOptions<TechStoreDbContext> options):base(options){DbPath="";}
- protected override void OnConfiguring(DbContextOptionsBuilder b){if(!b.IsConfigured)b.UseSqlite($"Data Source={DbPath}").LogTo(System.Diagnostics.Debug.WriteLine);}
+ public TechStoreDbContext(){} public TechStoreDbContext(DbContextOptions<TechStoreDbContext> options):base(options){}
+ protected override void OnConfiguring(DbContextOptionsBuilder b){if(!b.IsConfigured)b.UseSqlServer(DatabaseOptions.ConnectionString,x=>x.EnableRetryOnFailure()).LogTo(System.Diagnostics.Debug.WriteLine);}
  protected override void OnModelCreating(ModelBuilder b){
   b.Entity<Category>().HasIndex(x=>x.Name).IsUnique(); b.Entity<Product>().HasIndex(x=>x.Code).IsUnique(); b.Entity<Inventory>().HasIndex(x=>new{x.ProductId,x.BranchId}).IsUnique(); b.Entity<Customer>().HasIndex(x=>x.DocumentNumber).IsUnique().HasFilter("DocumentNumber IS NOT NULL"); b.Entity<Seller>().HasIndex(x=>x.DocumentNumber).IsUnique(); b.Entity<Sale>().HasIndex(x=>x.InvoiceNumber).IsUnique();
   b.Entity<Product>().Property(x=>x.Price).HasPrecision(18,2); b.Entity<Customer>().Property(x=>x.DiscountPercentage).HasPrecision(5,2); b.Entity<Customer>().Property(x=>x.CurrentAccountBalance).HasPrecision(18,2); foreach(var p in new[]{nameof(Sale.Subtotal),nameof(Sale.DiscountAmount),nameof(Sale.Total)}) b.Entity<Sale>().Property(p).HasPrecision(18,2);
