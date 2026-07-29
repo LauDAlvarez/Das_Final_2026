@@ -83,6 +83,6 @@ Ejecútelos en ese orden desde SSMS o con `sqlcmd`. El script `99` elimina todos
 los datos y nunca debe utilizarse en producción. Los scripts T-SQL son una vía de
 despliegue alternativa: no deben ejecutarse contra el archivo `techstore.db` de SQLite.
 
-## Módulos
+## Arquitectura y módulos
 
 Productos, categorías, clientes, sucursales, inventario, vendedores, nueva venta, historial/anulación, factura e impresión, pagos de cuenta corriente, reportes e indicadores de inicio. Los catálogos permiten alta, edición, búsqueda y activación/desactivación real; las altas de productos y sucursales crean automáticamente las filas de inventario faltantes con stock cero. Las bajas son lógicas y las operaciones financieras/de stock usan transacciones.
