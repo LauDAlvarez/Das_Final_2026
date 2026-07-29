@@ -93,6 +93,21 @@ abrir solamente `TechStore.sln`.
 
 `TechStore.App` contiene `Models`, `Views`, `Controllers`, `Services`, `Data`, `DTOs`, `Enums` y `Migrations`. `TechStore.Tests` prueba reglas críticas con una base SQLite aislada en memoria. `Docs/Formularios` describe las pantallas.
 
+## Scripts SQL Server del trabajo escrito
+
+La aplicación entregada es autocontenida y usa SQLite, pero se incluyen scripts
+T-SQL equivalentes para mantener o migrar el modelo **TechStoreDB** documentado:
+
+1. `scripts/sqlserver/01-Crear-TechStoreDB.sql`: esquema, relaciones, controles y columnas calculadas.
+2. `scripts/sqlserver/02-Datos-Ejemplo.sql`: sucursales, categorías, productos, clientes, vendedores y stock.
+3. `scripts/sqlserver/03-Registrar-Venta.sql`: ejemplo de alta transaccional con bloqueo y control de stock.
+4. `scripts/sqlserver/04-Reportes.sql`: ventas, ranking de productos y cuenta corriente.
+5. `scripts/sqlserver/99-Recrear-TechStoreDB.sql`: eliminación controlada para reiniciar un ambiente de desarrollo.
+
+Ejecútelos en ese orden desde SSMS o con `sqlcmd`. El script `99` elimina todos
+los datos y nunca debe utilizarse en producción. Los scripts T-SQL son una vía de
+despliegue alternativa: no deben ejecutarse contra el archivo `techstore.db` de SQLite.
+
 ## Módulos
 
-Productos, categorías, clientes, sucursales, inventario, vendedores, nueva venta, historial/anulación, factura e impresión, pagos de cuenta corriente, reportes e indicadores de inicio. Las bajas son lógicas y las operaciones financieras/de stock usan transacciones.
+Productos, categorías, clientes, sucursales, inventario, vendedores, nueva venta, historial/anulación, factura e impresión, pagos de cuenta corriente, reportes e indicadores de inicio. Los catálogos permiten alta, edición, búsqueda y activación/desactivación real; las altas de productos y sucursales crean automáticamente las filas de inventario faltantes con stock cero. Las bajas son lógicas y las operaciones financieras/de stock usan transacciones.
