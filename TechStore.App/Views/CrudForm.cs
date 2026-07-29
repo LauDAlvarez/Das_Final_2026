@@ -38,7 +38,7 @@ public partial class CrudForm : Form
             if (action == "Desactivar")
             {
                 var id = SelectedId() ?? throw new InvalidOperationException("Seleccione un registro.");
-                if (MessageBox.Show("¿Confirma activar/desactivar el registro seleccionado?", module,
+                if (MessageBox.Show("¿Confirma cambiar el estado del registro?", module,
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
                 await ToggleActive(id);
             }
@@ -98,44 +98,29 @@ public partial class CrudForm : Form
         var x = id.HasValue ? await db.Products.FindAsync(id.Value) ?? throw NotFound() : new Product();
         var categories = await db.Categories.Where(c => c.IsActive).OrderBy(c => c.Name).ToListAsync();
         if (categories.Count == 0) throw new InvalidOperationException("Primero debe crear una categoría activa.");
-        var branches = await db.Branches.Where(b => b.IsActive).OrderBy(b => b.Name).ToListAsync();
-        var inventories = id.HasValue
-            ? await db.Inventories.Where(i => i.ProductId == id.Value).ToDictionaryAsync(i => i.BranchId)
-            : new Dictionary<int, Inventory>();
-        using var d = new ProductEditorForm(id.HasValue);
+        using var d = new RecordDialog(id.HasValue ? "Editar producto" : "Nuevo producto");
         var code = d.TextField("Código", x.Code); var name = d.TextField("Nombre", x.Name);
         var description = d.TextField("Descripción", x.Description ?? "");
         var category = d.ComboField("Categoría", categories, "Name", "Id", x.CategoryId);
         var price = d.DecimalField("Precio", x.Price, 0.01m, 999999999m);
-        var stockFields = branches.Select(branch =>
-        {
-            inventories.TryGetValue(branch.Id, out var inventory);
-            return new ProductStockFields(
-                branch,
-                inventory,
-                d.IntegerField($"Stock - {branch.Name}", inventory?.Stock ?? 0, 0, 1000000),
-                d.IntegerField($"Mínimo - {branch.Name}", inventory?.MinimumStock ?? 0, 0, 1000000));
-        }).ToList();
         if (d.ShowDialog() != DialogResult.OK) return;
         Require(code.Text, "código"); Require(name.Text, "nombre");
         x.Code = code.Text.Trim(); x.Name = name.Text.Trim(); x.Description = NullIfEmpty(description.Text);
         x.CategoryId = (int)category.SelectedValue; x.Price = price.Value; x.UpdatedAt = DateTime.Now;
         if (!id.HasValue) db.Products.Add(x);
         await db.SaveChangesAsync();
-        foreach (var fields in stockFields)
+        if (!id.HasValue)
         {
-            var inventory = fields.Inventory ?? new Inventory { ProductId = x.Id, BranchId = fields.Branch.Id };
-            inventory.Stock = (int)fields.Stock.Value;
-            inventory.MinimumStock = (int)fields.MinimumStock.Value;
-            if (fields.Inventory is null) db.Inventories.Add(inventory);
+            var branches = await db.Branches.Where(b => b.IsActive).ToListAsync();
+            db.Inventories.AddRange(branches.Select(b => new Inventory { ProductId = x.Id, BranchId = b.Id, Stock = 0, MinimumStock = 0 }));
+            await db.SaveChangesAsync();
         }
-        await db.SaveChangesAsync();
     }
 
     static async Task EditCategory(TechStoreDbContext db, int? id)
     {
         var x = id.HasValue ? await db.Categories.FindAsync(id.Value) ?? throw NotFound() : new Category();
-        using var d = new CategoryEditorForm(id.HasValue);
+        using var d = new RecordDialog(id.HasValue ? "Editar categoría" : "Nueva categoría");
         var name = d.TextField("Nombre", x.Name); var description = d.TextField("Descripción", x.Description ?? "");
         if (d.ShowDialog() != DialogResult.OK) return;
         Require(name.Text, "nombre"); x.Name = name.Text.Trim(); x.Description = NullIfEmpty(description.Text);
@@ -145,7 +130,7 @@ public partial class CrudForm : Form
     static async Task EditCustomer(TechStoreDbContext db, int? id)
     {
         var x = id.HasValue ? await db.Customers.FindAsync(id.Value) ?? throw NotFound() : new Customer();
-        using var d = new CustomerEditorForm(id.HasValue);
+        using var d = new RecordDialog(id.HasValue ? "Editar cliente" : "Nuevo cliente");
         var document = d.TextField("CUIT / documento", x.DocumentNumber ?? ""); var name = d.TextField("Razón social", x.BusinessName);
         var email = d.TextField("Correo", x.Email ?? ""); var phone = d.TextField("Teléfono", x.Phone ?? ""); var address = d.TextField("Dirección", x.Address ?? "");
         var type = d.EnumField("Tipo", x.CustomerType); var discount = d.DecimalField("Descuento %", x.DiscountPercentage, 0, 100);
@@ -159,7 +144,7 @@ public partial class CrudForm : Form
     static async Task EditBranch(TechStoreDbContext db, int? id)
     {
         var x = id.HasValue ? await db.Branches.FindAsync(id.Value) ?? throw NotFound() : new Branch();
-        using var d = new BranchEditorForm(id.HasValue);
+        using var d = new RecordDialog(id.HasValue ? "Editar sucursal" : "Nueva sucursal");
         var name = d.TextField("Nombre", x.Name); var address = d.TextField("Dirección", x.Address); var phone = d.TextField("Teléfono", x.Phone);
         if (d.ShowDialog() != DialogResult.OK) return;
         Require(name.Text, "nombre"); Require(address.Text, "dirección");
@@ -176,7 +161,7 @@ public partial class CrudForm : Form
     static async Task EditSeller(TechStoreDbContext db, int? id)
     {
         var x = id.HasValue ? await db.Sellers.FindAsync(id.Value) ?? throw NotFound() : new Seller();
-        using var d = new SellerEditorForm(id.HasValue);
+        using var d = new RecordDialog(id.HasValue ? "Editar vendedor" : "Nuevo vendedor");
         var name = d.TextField("Nombre", x.Name); var document = d.TextField("Legajo / documento", x.DocumentNumber);
         var email = d.TextField("Correo", x.Email ?? ""); var phone = d.TextField("Teléfono", x.Phone ?? "");
         if (d.ShowDialog() != DialogResult.OK) return;
@@ -190,14 +175,13 @@ public partial class CrudForm : Form
     static string? NullIfEmpty(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
-class RecordDialog : Form
+sealed class RecordDialog : Form
 {
     int row;
     public RecordDialog(string title)
     {
         Text = title; Width = 510; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false; MinimizeBox = false; AutoScroll = true; ShowInTaskbar = false;
-        Font = new Font("Segoe UI", 9F); BackColor = Color.WhiteSmoke;
+        MaximizeBox = false; MinimizeBox = false; AutoScroll = true;
     }
     T Add<T>(string label, T control) where T : Control
     {
@@ -205,18 +189,7 @@ class RecordDialog : Form
         control.Left = 170; control.Top = 20 + row * 42; control.Width = 290; Controls.Add(control); row++; return control;
     }
     public TextBox TextField(string label, string value) => Add(label, new TextBox { Text = value, MaxLength = 150 });
-    public NumericUpDown DecimalField(string label, decimal value, decimal min, decimal max)
-    {
-        var input = new NumericUpDown { Minimum = min, Maximum = max, DecimalPlaces = 2, ThousandsSeparator = true };
-        input.Value = Math.Clamp(value, min, max);
-        return Add(label, input);
-    }
-    public NumericUpDown IntegerField(string label, int value, int min, int max)
-    {
-        var input = new NumericUpDown { Minimum = min, Maximum = max, DecimalPlaces = 0, ThousandsSeparator = true };
-        input.Value = Math.Clamp(value, min, max);
-        return Add(label, input);
-    }
+    public NumericUpDown DecimalField(string label, decimal value, decimal min, decimal max) => Add(label, new NumericUpDown { Value = Math.Clamp(value, min, max), Minimum = min, Maximum = max, DecimalPlaces = 2, ThousandsSeparator = true });
     public ComboBox EnumField<T>(string label, T value) where T : struct, Enum => Add(label, new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DataSource = Enum.GetValues<T>(), SelectedItem = value });
     public ComboBox ComboField(string label, object data, string display, string value, int selected)
     {
@@ -225,15 +198,8 @@ class RecordDialog : Form
     }
     protected override void OnShown(EventArgs e)
     {
-        Height = Math.Min(700, 105 + row * 42); var ok = new Button { Text = "Guardar", Left = 270, Top = 25 + row * 42, Width = 90, DialogResult = DialogResult.OK, BackColor = Color.SteelBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        Height = Math.Min(700, 105 + row * 42); var ok = new Button { Text = "Guardar", Left = 270, Top = 25 + row * 42, Width = 90, DialogResult = DialogResult.OK };
         var cancel = new Button { Text = "Cancelar", Left = 370, Top = ok.Top, Width = 90, DialogResult = DialogResult.Cancel };
         Controls.AddRange([ok, cancel]); AcceptButton = ok; CancelButton = cancel; base.OnShown(e);
     }
 }
-
-sealed class ProductEditorForm(bool editing) : RecordDialog(editing ? "Editar producto" : "Nuevo producto");
-sealed class CategoryEditorForm(bool editing) : RecordDialog(editing ? "Editar categoría" : "Nueva categoría");
-sealed class CustomerEditorForm(bool editing) : RecordDialog(editing ? "Editar cliente" : "Nuevo cliente");
-sealed class BranchEditorForm(bool editing) : RecordDialog(editing ? "Editar sucursal" : "Nueva sucursal");
-sealed class SellerEditorForm(bool editing) : RecordDialog(editing ? "Editar vendedor" : "Nuevo vendedor");
-sealed record ProductStockFields(Branch Branch, Inventory? Inventory, NumericUpDown Stock, NumericUpDown MinimumStock);

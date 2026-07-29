@@ -44,7 +44,12 @@ Desde la carpeta que contiene `TechStore.sln`, puede hacer doble clic en `INICIA
 .\INICIAR-TECHSTORE.cmd
 ```
 
-El iniciador elimina binarios anteriores, restaura dependencias, compila, prueba, comprueba la configuración `LAUTI/TechStoreDB` e inicia el ejecutable actualizado. La alternativa manual es:
+El iniciador valida el proyecto y después restaura dependencias/herramientas,
+elimina binarios antiguos, actualiza SQLite, ejecuta las pruebas e inicia la
+aplicación recién compilada. Esto evita abrir por error una versión anterior que
+todavía muestre el mensaje informativo en lugar de los formularios ABM.
+
+La alternativa manual es:
 
 ```bash
 dotnet restore
@@ -63,6 +68,21 @@ powershell -ExecutionPolicy Bypass -File .\scripts\Verificar-Entorno.ps1
 
 La salida esperada indica `TechStore.App / net8.0-windows / EF Core SQL Server`. En Visual Studio establezca **TechStore.App** como proyecto de inicio. No ejecute proyectos antiguos `net472` ni ejecutables conservados en otras carpetas.
 
+## Scripts SQL Server del trabajo escrito
+
+La aplicación entregada es autocontenida y usa SQLite, pero se incluyen scripts
+T-SQL equivalentes para mantener o migrar el modelo **TechStoreDB** documentado:
+
+1. `scripts/sqlserver/01-Crear-TechStoreDB.sql`: esquema, relaciones, controles y columnas calculadas.
+2. `scripts/sqlserver/02-Datos-Ejemplo.sql`: sucursales, categorías, productos, clientes, vendedores y stock.
+3. `scripts/sqlserver/03-Registrar-Venta.sql`: ejemplo de alta transaccional con bloqueo y control de stock.
+4. `scripts/sqlserver/04-Reportes.sql`: ventas, ranking de productos y cuenta corriente.
+5. `scripts/sqlserver/99-Recrear-TechStoreDB.sql`: eliminación controlada para reiniciar un ambiente de desarrollo.
+
+Ejecútelos en ese orden desde SSMS o con `sqlcmd`. El script `99` elimina todos
+los datos y nunca debe utilizarse en producción. Los scripts T-SQL son una vía de
+despliegue alternativa: no deben ejecutarse contra el archivo `techstore.db` de SQLite.
+
 ## Arquitectura y módulos
 
-`TechStore.App` contiene `Models`, `Views`, `Controllers`, `Services`, `Data`, `DTOs` y `Enums`. Los ABM permiten alta, edición, búsqueda y activación/desactivación. En **Nuevo producto** y **Editar producto** se puede cargar el stock y el stock mínimo de cada sucursal activa; al crear una sucursal se generan los inventarios faltantes en cero. Las ventas y operaciones de stock/cuenta corriente usan transacciones. `TechStore.Tests` conserva SQLite únicamente como motor aislado en memoria para pruebas; nunca se usa como persistencia de la aplicación ejecutable.
+Productos, categorías, clientes, sucursales, inventario, vendedores, nueva venta, historial/anulación, factura e impresión, pagos de cuenta corriente, reportes e indicadores de inicio. Los catálogos permiten alta, edición, búsqueda y activación/desactivación real; las altas de productos y sucursales crean automáticamente las filas de inventario faltantes con stock cero. Las bajas son lógicas y las operaciones financieras/de stock usan transacciones.
