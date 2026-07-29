@@ -23,7 +23,9 @@ La forma más sencilla en Windows es hacer doble clic en
 ```
 
 El iniciador valida el proyecto y después restaura dependencias/herramientas,
-actualiza SQLite, ejecuta las pruebas e inicia la aplicación.
+elimina binarios antiguos, actualiza SQLite, ejecuta las pruebas e inicia la
+aplicación recién compilada. Esto evita abrir por error una versión anterior que
+todavía muestre el mensaje informativo en lugar de los formularios ABM.
 
 La alternativa manual es:
 
