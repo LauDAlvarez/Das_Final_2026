@@ -1,17 +1,18 @@
 USE TechStoreDB;
 GO
-/* Ejemplo equivalente al flujo transaccional de TechStore.App. PaymentMethod: 0 efectivo, 1 tarjeta, 2 transferencia, 3 cuenta corriente. */
-DECLARE @BranchId int=1,@CustomerId int=2,@SellerId int=1,@ProductId int=1,@Quantity int=2,@PaymentMethod int=3,@SaleId int,@Price decimal(18,2),@Discount decimal(5,2),@Subtotal decimal(18,2),@DiscountAmount decimal(18,2),@Total decimal(18,2),@Invoice nvarchar(30);
-SET XACT_ABORT ON; BEGIN TRAN;
-SELECT @Price=Price FROM dbo.Products WHERE Id=@ProductId AND IsActive=1;
-SELECT @Discount=DiscountPercentage FROM dbo.Customers WHERE Id=@CustomerId AND IsActive=1;
-IF @Price IS NULL OR @Discount IS NULL OR @Quantity<=0 THROW 50002,N'Datos de venta inválidos.',1;
-IF NOT EXISTS(SELECT 1 FROM dbo.Inventories WITH(UPDLOCK,HOLDLOCK) WHERE BranchId=@BranchId AND ProductId=@ProductId AND Stock>=@Quantity) THROW 50003,N'Stock insuficiente.',1;
-SET @Subtotal=@Price*@Quantity; SET @DiscountAmount=ROUND(@Subtotal*@Discount/100,2); SET @Total=@Subtotal-@DiscountAmount;
-SET @Invoice=N'FAC-'+RIGHT(REPLICATE('0',8)+CONVERT(varchar(8),ISNULL((SELECT MAX(Id) FROM dbo.Sales WITH(UPDLOCK,HOLDLOCK)),0)+1),8);
-INSERT dbo.Sales(InvoiceNumber,Date,CustomerId,BranchId,SellerId,Subtotal,DiscountAmount,Total,PaymentMethod,PaymentStatus,IsCancelled) VALUES(@Invoice,SYSDATETIME(),@CustomerId,@BranchId,@SellerId,@Subtotal,@DiscountAmount,@Total,@PaymentMethod,IIF(@PaymentMethod=3,1,0),0);
-SET @SaleId=SCOPE_IDENTITY(); INSERT dbo.SaleItems(SaleId,ProductId,Quantity,UnitPrice,Subtotal) VALUES(@SaleId,@ProductId,@Quantity,@Price,@Subtotal);
-UPDATE dbo.Inventories SET Stock=Stock-@Quantity WHERE BranchId=@BranchId AND ProductId=@ProductId;
-IF @PaymentMethod=3 BEGIN UPDATE dbo.Customers SET CurrentAccountBalance=CurrentAccountBalance+@Total WHERE Id=@CustomerId; INSERT dbo.CurrentAccountMovements(CustomerId,SaleId,Date,MovementType,Description,Debit,Credit,Balance) SELECT @CustomerId,@SaleId,SYSDATETIME(),0,N'Venta '+@Invoice,@Total,0,CurrentAccountBalance FROM dbo.Customers WHERE Id=@CustomerId; END;
-COMMIT; SELECT * FROM dbo.Sales WHERE Id=@SaleId;
+/* Ejemplo transaccional. Sustituya los valores declarados desde ADO.NET. */
+DECLARE @Sucursal int=1,@Cliente int=2,@Vendedor int=1,@Codigo nvarchar(30)=N'TS-001',@Cantidad int=2,@Metodo nvarchar(30)=N'Cuenta Corriente',@Venta int,@Precio decimal(18,2),@Descuento decimal(5,2);
+SET XACT_ABORT ON;
+BEGIN TRAN;
+SELECT @Precio=Precio FROM dbo.Productos WITH(UPDLOCK,HOLDLOCK) WHERE Codigo=@Codigo AND Activo=1;
+SELECT @Descuento=DescuentoPorcentaje FROM dbo.Clientes WHERE IdCliente=@Cliente AND Activo=1;
+IF @Precio IS NULL OR @Cantidad<=0 THROW 50001,N'Producto o cantidad inválidos.',1;
+IF NOT EXISTS(SELECT 1 FROM dbo.StockSucursal WITH(UPDLOCK,HOLDLOCK) WHERE IdSucursal=@Sucursal AND CodigoProducto=@Codigo AND Stock>=@Cantidad) THROW 50002,N'Stock insuficiente.',1;
+INSERT dbo.Ventas(IdSucursal,IdCliente,IdVendedor,TotalBruto,DescuentoTotal,MetodoPago,EstadoPago) VALUES(@Sucursal,@Cliente,@Vendedor,@Precio*@Cantidad,ROUND(@Precio*@Cantidad*@Descuento/100,2),@Metodo,IIF(@Metodo IN(N'CC',N'Cuenta Corriente'),N'Pendiente',N'Pagado'));
+SET @Venta=SCOPE_IDENTITY();
+INSERT dbo.DetalleVenta(IdVenta,CodigoProducto,Cantidad,PrecioUnitario) VALUES(@Venta,@Codigo,@Cantidad,@Precio);
+UPDATE dbo.StockSucursal SET Stock=Stock-@Cantidad WHERE IdSucursal=@Sucursal AND CodigoProducto=@Codigo;
+IF @Metodo IN(N'CC',N'Cuenta Corriente') INSERT dbo.MovimientosCuentaCorriente(IdCliente,IdVenta,Tipo,Descripcion,Debe) SELECT @Cliente,@Venta,N'Cargo',N'Venta '+NumeroFactura,TotalNeto FROM dbo.Ventas WHERE IdVenta=@Venta;
+COMMIT;
+SELECT * FROM dbo.Ventas WHERE IdVenta=@Venta;
 GO
