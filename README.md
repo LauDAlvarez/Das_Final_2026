@@ -8,6 +8,25 @@ C# 12, .NET 8, Windows Forms, Entity Framework Core 8, SQLite, LINQ y xUnit. Req
 
 ## Restaurar, crear, compilar y ejecutar
 
+Antes de ejecutar cualquier comando, confirme que su copia local contiene los
+archivos `TechStore.sln`, `TechStore.App\TechStore.App.csproj`,
+`INICIAR-TECHSTORE.cmd` y `scripts\Verificar-Entorno.ps1`. Si alguno no existe,
+la copia local todavía no contiene esta entrega: actualice la rama correspondiente
+con `git pull` o vuelva a clonar el repositorio. Ningún comando puede ejecutar un
+archivo que aún no fue descargado.
+
+La forma más sencilla en Windows es hacer doble clic en
+`INICIAR-TECHSTORE.cmd`, o ejecutarlo desde la raíz:
+
+```bat
+.\INICIAR-TECHSTORE.cmd
+```
+
+El iniciador valida el proyecto y después restaura dependencias/herramientas,
+actualiza SQLite, ejecuta las pruebas e inicia la aplicación.
+
+La alternativa manual es:
+
 ```bash
 dotnet restore
 dotnet tool restore
@@ -36,6 +55,39 @@ en inglés `Branch` y `Seller`. Si Visual Studio informa errores en
 `TechStore.Models.Entities.Sucursal`, `Data/Migrations/Configuration.cs` o en un
 proyecto llamado `TechStore.csproj`, se está compilando otra solución. Cierre esa
 solución y abra específicamente `TechStore.sln` desde esta carpeta.
+
+El siguiente comando comprueba automáticamente que se abrió la entrega correcta:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\Verificar-Entorno.ps1
+```
+
+Si PowerShell indica que ese archivo no existe, no es un error de PowerShell ni
+de permisos: significa que la copia local no tiene el commit que añadió el script,
+o que la consola no está ubicada en la raíz de esta entrega. Compruébelo con:
+
+```bat
+dir TechStore.sln
+dir TechStore.App\TechStore.App.csproj
+dir scripts\Verificar-Entorno.ps1
+git status -sb
+git log -1 --oneline
+```
+
+No continúe ejecutando el `.exe` de la subcarpeta legado `TechStore\bin\Debug\net472`.
+
+La salida correcta comienza con `Entorno correcto: TechStore.App / net8.0-windows /
+EF Core SQLite`. Si el depurador muestra `CLR v4.0.30319`, `net472`,
+`EntityFramework.dll`, `EntityFramework.SqlServer.dll`, `System.Data.SqlClient` o
+tablas llamadas `Sucursals`/`Vendedors`, está ejecutando el proyecto legado de
+.NET Framework 4.7.2 y SQL Server, no esta aplicación. Esta entrega carga CoreCLR
+de .NET 8, `Microsoft.EntityFrameworkCore.Sqlite` y genera
+`TechStore.App.exe` dentro de `TechStore.App\bin\Debug\net8.0-windows`.
+
+En Visual Studio, haga clic derecho sobre **TechStore.App** y seleccione
+**Establecer como proyecto de inicio**. Si todavía aparece `net472`, cierre Visual
+Studio, elimine las carpetas `.vs`, `bin` y `obj` del proyecto legado y vuelva a
+abrir solamente `TechStore.sln`.
 
 ## Estructura
 
