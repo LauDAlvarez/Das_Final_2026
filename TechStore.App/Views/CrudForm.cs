@@ -98,23 +98,38 @@ public partial class CrudForm : Form
         var x = id.HasValue ? await db.Products.FindAsync(id.Value) ?? throw NotFound() : new Product();
         var categories = await db.Categories.Where(c => c.IsActive).OrderBy(c => c.Name).ToListAsync();
         if (categories.Count == 0) throw new InvalidOperationException("Primero debe crear una categoría activa.");
+        var branches = await db.Branches.Where(b => b.IsActive).OrderBy(b => b.Name).ToListAsync();
+        var inventories = id.HasValue
+            ? await db.Inventories.Where(i => i.ProductId == id.Value).ToDictionaryAsync(i => i.BranchId)
+            : new Dictionary<int, Inventory>();
         using var d = new RecordDialog(id.HasValue ? "Editar producto" : "Nuevo producto");
         var code = d.TextField("Código", x.Code); var name = d.TextField("Nombre", x.Name);
         var description = d.TextField("Descripción", x.Description ?? "");
         var category = d.ComboField("Categoría", categories, "Name", "Id", x.CategoryId);
         var price = d.DecimalField("Precio", x.Price, 0.01m, 999999999m);
+        var stockFields = branches.Select(branch =>
+        {
+            inventories.TryGetValue(branch.Id, out var inventory);
+            return new ProductStockFields(
+                branch,
+                inventory,
+                d.IntegerField($"Stock - {branch.Name}", inventory?.Stock ?? 0, 0, 1000000),
+                d.IntegerField($"Mínimo - {branch.Name}", inventory?.MinimumStock ?? 0, 0, 1000000));
+        }).ToList();
         if (d.ShowDialog() != DialogResult.OK) return;
         Require(code.Text, "código"); Require(name.Text, "nombre");
         x.Code = code.Text.Trim(); x.Name = name.Text.Trim(); x.Description = NullIfEmpty(description.Text);
         x.CategoryId = (int)category.SelectedValue; x.Price = price.Value; x.UpdatedAt = DateTime.Now;
         if (!id.HasValue) db.Products.Add(x);
         await db.SaveChangesAsync();
-        if (!id.HasValue)
+        foreach (var fields in stockFields)
         {
-            var branches = await db.Branches.Where(b => b.IsActive).ToListAsync();
-            db.Inventories.AddRange(branches.Select(b => new Inventory { ProductId = x.Id, BranchId = b.Id, Stock = 0, MinimumStock = 0 }));
-            await db.SaveChangesAsync();
+            var inventory = fields.Inventory ?? new Inventory { ProductId = x.Id, BranchId = fields.Branch.Id };
+            inventory.Stock = (int)fields.Stock.Value;
+            inventory.MinimumStock = (int)fields.MinimumStock.Value;
+            if (fields.Inventory is null) db.Inventories.Add(inventory);
         }
+        await db.SaveChangesAsync();
     }
 
     static async Task EditCategory(TechStoreDbContext db, int? id)
@@ -189,7 +204,18 @@ sealed class RecordDialog : Form
         control.Left = 170; control.Top = 20 + row * 42; control.Width = 290; Controls.Add(control); row++; return control;
     }
     public TextBox TextField(string label, string value) => Add(label, new TextBox { Text = value, MaxLength = 150 });
-    public NumericUpDown DecimalField(string label, decimal value, decimal min, decimal max) => Add(label, new NumericUpDown { Value = Math.Clamp(value, min, max), Minimum = min, Maximum = max, DecimalPlaces = 2, ThousandsSeparator = true });
+    public NumericUpDown DecimalField(string label, decimal value, decimal min, decimal max)
+    {
+        var input = new NumericUpDown { Minimum = min, Maximum = max, DecimalPlaces = 2, ThousandsSeparator = true };
+        input.Value = Math.Clamp(value, min, max);
+        return Add(label, input);
+    }
+    public NumericUpDown IntegerField(string label, int value, int min, int max)
+    {
+        var input = new NumericUpDown { Minimum = min, Maximum = max, DecimalPlaces = 0, ThousandsSeparator = true };
+        input.Value = Math.Clamp(value, min, max);
+        return Add(label, input);
+    }
     public ComboBox EnumField<T>(string label, T value) where T : struct, Enum => Add(label, new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, DataSource = Enum.GetValues<T>(), SelectedItem = value });
     public ComboBox ComboField(string label, object data, string display, string value, int selected)
     {
@@ -203,3 +229,5 @@ sealed class RecordDialog : Form
         Controls.AddRange([ok, cancel]); AcceptButton = ok; CancelButton = cancel; base.OnShown(e);
     }
 }
+
+sealed record ProductStockFields(Branch Branch, Inventory? Inventory, NumericUpDown Stock, NumericUpDown MinimumStock);
