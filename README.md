@@ -44,9 +44,9 @@ Desde la carpeta que contiene `TechStore.sln`, puede hacer doble clic en `INICIA
 .\INICIAR-TECHSTORE.cmd
 ```
 
-El iniciador valida el proyecto y después restaura dependencias/herramientas,
-elimina binarios antiguos, actualiza SQLite, ejecuta las pruebas e inicia la
-aplicación recién compilada. Esto evita abrir por error una versión anterior que
+El iniciador valida el proyecto, elimina binarios antiguos, restaura dependencias,
+compila explícitamente la solución, ejecuta las pruebas e inicia la aplicación recién
+compilada. Esto evita abrir por error una versión anterior que
 todavía muestre el mensaje informativo en lugar de los formularios ABM.
 
 La alternativa manual es:
@@ -70,8 +70,8 @@ La salida esperada indica `TechStore.App / net8.0-windows / EF Core SQL Server`.
 
 ## Scripts SQL Server del trabajo escrito
 
-La aplicación entregada es autocontenida y usa SQLite, pero se incluyen scripts
-T-SQL equivalentes para mantener o migrar el modelo **TechStoreDB** documentado:
+La aplicación utiliza SQL Server y se incluyen scripts T-SQL para mantener o
+recrear el modelo **TechStoreDB** documentado:
 
 1. `scripts/sqlserver/01-Crear-TechStoreDB.sql`: esquema, relaciones, controles y columnas calculadas.
 2. `scripts/sqlserver/02-Datos-Ejemplo.sql`: sucursales, categorías, productos, clientes, vendedores y stock.
@@ -81,7 +81,7 @@ T-SQL equivalentes para mantener o migrar el modelo **TechStoreDB** documentado:
 
 Ejecútelos en ese orden desde SSMS o con `sqlcmd`. El script `99` elimina todos
 los datos y nunca debe utilizarse en producción. Los scripts T-SQL son una vía de
-despliegue alternativa: no deben ejecutarse contra el archivo `techstore.db` de SQLite.
+despliegue de SQL Server y deben ejecutarse únicamente sobre `TechStoreDB`.
 
 ## Arquitectura y módulos
 
