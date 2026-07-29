@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore; using TechStore.App.Enums; using TechStore.App.Models;
 namespace TechStore.App.Data;
 public static class DatabaseInitializer {
- public static async Task InitializeAsync(){await using var db=new TechStoreDbContext(); await db.Database.MigrateAsync(); if(await db.Categories.AnyAsync())return;
+ public static async Task InitializeAsync(){await using var db=new TechStoreDbContext(); await db.Database.EnsureCreatedAsync(); if(await db.Categories.AnyAsync())return;
   var cats=new[]{"Computación","Periféricos","Telefonía","Accesorios"}.Select(x=>new Category{Name=x,Description=$"Productos de {x}"}).ToArray(); db.AddRange(cats); await db.SaveChangesAsync();
   var products=Enumerable.Range(1,10).Select(i=>new Product{Code=$"TS-{i:000}",Name=new[]{"Notebook","Monitor","Teclado","Mouse","Teléfono","Auriculares","Webcam","Disco SSD","Memoria RAM","Cargador"}[i-1],CategoryId=cats[(i-1)%4].Id,Price=15000m+i*7250}).ToArray();
   var branches=new[]{new Branch{Name="Casa Central",Address="Av. Tecnología 100",Phone="11-4000-1000"},new Branch{Name="Sucursal Norte",Address="Belgrano 450",Phone="11-4000-2000"},new Branch{Name="Sucursal Sur",Address="Mitre 800",Phone="11-4000-3000"}};
